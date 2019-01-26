@@ -197,15 +197,14 @@ int main(int argc, char **argv){
     
     
     
-    // 将它附加到当前绑定的帧缓冲对象
-    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, canvasCopyTexture, 0);
+//    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, canvasCopyTexture, 0);
     
     
     // create a renderbuffer object for depth and stencil attachment (we won't be sampling these)
     unsigned int rbo;
     glGenRenderbuffers(1, &rbo);
     glBindRenderbuffer(GL_RENDERBUFFER, rbo);
-    glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, viewportWidth, viewportHeight); // use a single renderbuffer object for both a depth AND stencil buffer.
+    glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, PARTICLE_DATA_WIDTH, PARTICLE_DATA_HEIGHT); // use a single renderbuffer object for both a depth AND stencil buffer.
     glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_RENDERBUFFER, rbo); // now actually attach it
     // now that we actually created the framebuffer and added all attachments we want to check if it is actually complete now
     if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
@@ -265,47 +264,49 @@ int main(int argc, char **argv){
         glClearColor(120/255.0f, 173/255.0f, 211/255.0f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
         //////////////////////
+        if (true) {
         
+            glUseProgram(shaderProgram);
+            
+            // draw our first triangle
+            glBindVertexArray(VAO); // seeing as we only have a single VAO there's no need to bind it every time, but we'll do so to keep things a bit more organized
+            // bind Texture
+            glBindTexture(GL_TEXTURE_2D, texture);
+            glActiveTexture(GL_TEXTURE0);
+            
+            model = glm::mat4(1.0f);
+            model = glm::translate(model,  glm::vec3(0.0f,0.0f, -0.9f));
+            model = glm::rotate(model, 1.0f, glm::vec3(0.0f, 1.0f, 0.0f));
+            glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model));
+            glDrawArrays(GL_TRIANGLES, 0, number_of_vertices);
+            
+            model = glm::translate(model,  glm::vec3(1.0f,1.0f, -0.9f));
+            model = glm::rotate(model, 1.0f, glm::vec3(-5.0f, 1.0f, 0.0f));
+            glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model));
+            glDrawArrays(GL_TRIANGLES, 0, number_of_vertices);
+            
+            model = glm::mat4(1.0f);
+            model = glm::translate(model,  glm::vec3(0.0f,0.0f, -2.2f));
+            glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model));
+            go.draw();
+            
+            
+            model = glm::translate(model,  glm::vec3(0.0f,0.0f, 3.2f));
+            model = glm::rotate(model, (float)glfwGetTime() * 1, glm::vec3(0.0f, 1.0f, 0.0f));
+            glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model));
+            go.draw();
+            
+            glBindVertexArray(0);
         
-        glUseProgram(shaderProgram);
-        
-        // draw our first triangle
-        glBindVertexArray(VAO); // seeing as we only have a single VAO there's no need to bind it every time, but we'll do so to keep things a bit more organized
-        // bind Texture
-        glBindTexture(GL_TEXTURE_2D, texture);
-        glActiveTexture(GL_TEXTURE0);
-        
-        model = glm::mat4(1.0f);
-        model = glm::translate(model,  glm::vec3(0.0f,0.0f, -0.9f));
-        model = glm::rotate(model, 1.0f, glm::vec3(0.0f, 1.0f, 0.0f));
-        glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model));
-        glDrawArrays(GL_TRIANGLES, 0, number_of_vertices);
-        
-        model = glm::translate(model,  glm::vec3(1.0f,1.0f, -0.9f));
-        model = glm::rotate(model, 1.0f, glm::vec3(-5.0f, 1.0f, 0.0f));
-        glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model));
-        glDrawArrays(GL_TRIANGLES, 0, number_of_vertices);
-        
-        model = glm::mat4(1.0f);
-        model = glm::translate(model,  glm::vec3(0.0f,0.0f, -2.2f));
-        glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model));
-        go.draw();
-        
-        
-        model = glm::translate(model,  glm::vec3(0.0f,0.0f, 3.2f));
-        model = glm::rotate(model, (float)glfwGetTime() * 1, glm::vec3(0.0f, 1.0f, 0.0f));
-        glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model));
-        go.draw();
-        
-        glBindVertexArray(0);
-        
-        
+        }
         
         /////////////////////////
         //////// PHYSICS ////////
         /////////////////////////
         
+        // bind output-texture to fbo
         glBindFramebuffer(GL_FRAMEBUFFER, fbo); // render to frameBuffer
+        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, physicsOutputTexture, 0);
 //        glBindFramebuffer(GL_FRAMEBUFFER, 0); // render to screen
 //        calculatePhysics();
         glDisable(GL_DEPTH_TEST);
@@ -314,8 +315,6 @@ int main(int argc, char **argv){
         glClear(GL_COLOR_BUFFER_BIT);
         glViewport(0, 0, PARTICLE_DATA_WIDTH, PARTICLE_DATA_HEIGHT);
         
-        // bind output-texture to fbo
-        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, physicsOutputTexture, 0);
         
         glUseProgram(physicsProgram);
         glBindVertexArray(quadVAO);
@@ -344,7 +343,7 @@ int main(int argc, char **argv){
         ////// OFF-SCREEN ///////
         /////////////////////////
     
-        if (!true) {
+        if (true) {
             glBindFramebuffer(GL_FRAMEBUFFER, 0);
             glDisable(GL_DEPTH_TEST);
             // clear all relevant buffers
@@ -568,6 +567,6 @@ void createPhysicsTexture(unsigned int * texptr, float** data) {
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, PARTICLE_DATA_WIDTH, PARTICLE_DATA_HEIGHT, 0, GL_RGBA, GL_FLOAT, *data);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, PARTICLE_DATA_WIDTH, PARTICLE_DATA_HEIGHT, 0, GL_RGBA, GL_FLOAT, *data);
     
 }
