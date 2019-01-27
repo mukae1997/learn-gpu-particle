@@ -197,14 +197,13 @@ int main(int argc, char **argv){
     
     
     
-//    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, canvasCopyTexture, 0);
     
     
     // create a renderbuffer object for depth and stencil attachment (we won't be sampling these)
     unsigned int rbo;
     glGenRenderbuffers(1, &rbo);
     glBindRenderbuffer(GL_RENDERBUFFER, rbo);
-    glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, PARTICLE_DATA_WIDTH, PARTICLE_DATA_HEIGHT); // use a single renderbuffer object for both a depth AND stencil buffer.
+    glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, viewportWidth, viewportHeight); // use a single renderbuffer object for both a depth AND stencil buffer.
     glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_RENDERBUFFER, rbo); // now actually attach it
     // now that we actually created the framebuffer and added all attachments we want to check if it is actually complete now
     if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
@@ -256,6 +255,8 @@ int main(int argc, char **argv){
         processInput(window);
         
         glBindFramebuffer(GL_FRAMEBUFFER, fbo);
+        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, canvasCopyTexture, 0);
+        
         
         glEnable(GL_DEPTH_TEST);
         glEnable(GL_BLEND);
@@ -303,11 +304,11 @@ int main(int argc, char **argv){
         /////////////////////////
         //////// PHYSICS ////////
         /////////////////////////
-        
+        if (!true){
         // bind output-texture to fbo
-        glBindFramebuffer(GL_FRAMEBUFFER, fbo); // render to frameBuffer
-        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, physicsOutputTexture, 0);
-//        glBindFramebuffer(GL_FRAMEBUFFER, 0); // render to screen
+//        glBindFramebuffer(GL_FRAMEBUFFER, fbo); // render to frameBuffer
+        // glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, physicsOutputTexture, 0);
+        glBindFramebuffer(GL_FRAMEBUFFER, 0); // render to screen
 //        calculatePhysics();
         glDisable(GL_DEPTH_TEST);
         
@@ -336,7 +337,7 @@ int main(int argc, char **argv){
         
         glBindVertexArray(0);
         
-        
+        }
         
         
         /////////////////////////
@@ -352,11 +353,11 @@ int main(int argc, char **argv){
             glClear(GL_COLOR_BUFFER_BIT);
 
             
-            glViewport(0, 0, SCR_WIDTH, SCR_HEIGHT);
+            glViewport(0, 0, viewportWidth, viewportHeight);
             glUseProgram(screenShaderProgram);
             
             glActiveTexture(GL_TEXTURE0);
-            glBindTexture(GL_TEXTURE_2D, physicsOutputTexture);
+            glBindTexture(GL_TEXTURE_2D, canvasCopyTexture);
             glUniform1i(glGetUniformLocation(screenShaderProgram, "screenTexture"), 0);
             
             glBindVertexArray(quadVAO); // use the color attachment texture as the texture of the quad plane
