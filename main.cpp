@@ -255,7 +255,6 @@ int main(int argc, char **argv){
         processInput(window);
         
         glBindFramebuffer(GL_FRAMEBUFFER, fbo);
-        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, canvasCopyTexture, 0);
         
         
         glEnable(GL_DEPTH_TEST);
@@ -265,7 +264,7 @@ int main(int argc, char **argv){
         glClearColor(120/255.0f, 173/255.0f, 211/255.0f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
         //////////////////////
-        if (true) {
+        if (!true) {
         
             glUseProgram(shaderProgram);
             
@@ -304,38 +303,38 @@ int main(int argc, char **argv){
         /////////////////////////
         //////// PHYSICS ////////
         /////////////////////////
-        if (!true){
+        if (true){
         // bind output-texture to fbo
-//        glBindFramebuffer(GL_FRAMEBUFFER, fbo); // render to frameBuffer
-        // glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, physicsOutputTexture, 0);
-        glBindFramebuffer(GL_FRAMEBUFFER, 0); // render to screen
-//        calculatePhysics();
-        glDisable(GL_DEPTH_TEST);
-        
-        glClearColor(0.2f, 0.2f, 0.2f, 1.0f);
-        glClear(GL_COLOR_BUFFER_BIT);
-        glViewport(0, 0, PARTICLE_DATA_WIDTH, PARTICLE_DATA_HEIGHT);
-        
-        
-        glUseProgram(physicsProgram);
-        glBindVertexArray(quadVAO);
-        
-        
-        // feed input
-        glActiveTexture(GL_TEXTURE0);
-        glBindTexture(GL_TEXTURE_2D, physicsInputTexture);
-        glUniform1i(glGetUniformLocation(physicsProgram, "physicsInput"), 0);
-        
-        
-        // set data texture size
-        glUniform2f(glGetUniformLocation(physicsProgram, "bounds"), PARTICLE_DATA_WIDTH, PARTICLE_DATA_HEIGHT);
-        
-        
-        
-        
-        glDrawArrays(GL_TRIANGLES, 0, 6); // debug
-        
-        glBindVertexArray(0);
+        glBindFramebuffer(GL_FRAMEBUFFER, fbo); // render to frameBuffer
+         glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, physicsOutputTexture, 0);
+//            glBindFramebuffer(GL_FRAMEBUFFER, 0); // render to screen
+    //        calculatePhysics();
+            glDisable(GL_DEPTH_TEST);
+            
+            glClearColor(0.2f, 0.2f, 0.2f, 1.0f);
+            glClear(GL_COLOR_BUFFER_BIT);
+            glViewport(0, 0, PARTICLE_DATA_WIDTH, PARTICLE_DATA_HEIGHT);
+            
+            
+            glUseProgram(physicsProgram);
+            glBindVertexArray(quadVAO);
+            
+            
+            // feed input
+            glActiveTexture(GL_TEXTURE0);
+            glBindTexture(GL_TEXTURE_2D, physicsInputTexture);
+            glUniform1i(glGetUniformLocation(physicsProgram, "physicsInput"), 0);
+            
+            
+            // set data texture size
+            glUniform2f(glGetUniformLocation(physicsProgram, "bounds"), PARTICLE_DATA_WIDTH, PARTICLE_DATA_HEIGHT);
+            
+            
+            
+            
+            glDrawArrays(GL_TRIANGLES, 0, 6); // debug
+            
+            glBindVertexArray(0);
         
         }
         
@@ -357,7 +356,7 @@ int main(int argc, char **argv){
             glUseProgram(screenShaderProgram);
             
             glActiveTexture(GL_TEXTURE0);
-            glBindTexture(GL_TEXTURE_2D, canvasCopyTexture);
+            glBindTexture(GL_TEXTURE_2D, physicsOutputTexture);
             glUniform1i(glGetUniformLocation(screenShaderProgram, "screenTexture"), 0);
             
             glBindVertexArray(quadVAO); // use the color attachment texture as the texture of the quad plane
@@ -563,6 +562,7 @@ void createCanvasCopyTexture() {
 
 void createPhysicsTexture(unsigned int * texptr, float** data) {
     
+    glGenTextures(1, texptr); // ....
     glBindTexture(GL_TEXTURE_2D, *texptr);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
