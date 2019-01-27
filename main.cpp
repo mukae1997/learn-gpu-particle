@@ -44,6 +44,7 @@ const char *fragmentShaderSource = "#version 330 core\n"
 char*vertexShaderSource, *fragmentShaderSource;
 char* screenVS, *screenFS;
 char* physicsVS, *physicsFS;
+char* copyVS, *copyFS;
 
 int SCR_WIDTH = 800, SCR_HEIGHT = 600;
 
@@ -106,6 +107,7 @@ int main(int argc, char **argv){
     int shaderProgram = createShader(&vertexShaderSource, &fragmentShaderSource, "basic.vs", "basic.fs");
     int screenShaderProgram = createShader(&screenVS, &screenFS, "./shaders/screenShader.vs", "./shaders/screenShader.fs");
     int physicsProgram = createShader(&physicsVS, &physicsFS, "./shaders/physics.vs", "./shaders/physics.fs");
+    int copyProgram = createShader(&copyVS, &copyFS, "./shaders/copy.vs", "./shaders/copy.fs");
   
     
     int VAO = setupVerticesData();
@@ -255,7 +257,7 @@ int main(int argc, char **argv){
         processInput(window);
         
         glBindFramebuffer(GL_FRAMEBUFFER, fbo);
-        
+        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, canvasCopyTexture, 0);
         
         glEnable(GL_DEPTH_TEST);
         glEnable(GL_BLEND);
@@ -300,37 +302,35 @@ int main(int argc, char **argv){
         
         }
         
+        
+        
+        
         /////////////////////////
         //////// PHYSICS ////////
         /////////////////////////
         if (true){
-        // bind output-texture to fbo
-        glBindFramebuffer(GL_FRAMEBUFFER, fbo); // render to frameBuffer
-         glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, physicsOutputTexture, 0);
+            // bind output-texture to fbo
+            glBindFramebuffer(GL_FRAMEBUFFER, fbo); // render to frameBuffer
+            glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, physicsOutputTexture, 0);
 //            glBindFramebuffer(GL_FRAMEBUFFER, 0); // render to screen
     //        calculatePhysics();
+            glViewport(0, 0, PARTICLE_DATA_WIDTH, PARTICLE_DATA_HEIGHT);
             glDisable(GL_DEPTH_TEST);
             
             glClearColor(0.2f, 0.2f, 0.2f, 1.0f);
             glClear(GL_COLOR_BUFFER_BIT);
-            glViewport(0, 0, PARTICLE_DATA_WIDTH, PARTICLE_DATA_HEIGHT);
-            
             
             glUseProgram(physicsProgram);
-            glBindVertexArray(quadVAO);
-            
             
             // feed input
             glActiveTexture(GL_TEXTURE0);
             glBindTexture(GL_TEXTURE_2D, physicsInputTexture);
             glUniform1i(glGetUniformLocation(physicsProgram, "physicsInput"), 0);
-            
-            
             // set data texture size
             glUniform2f(glGetUniformLocation(physicsProgram, "bounds"), PARTICLE_DATA_WIDTH, PARTICLE_DATA_HEIGHT);
             
             
-            
+            glBindVertexArray(quadVAO);
             
             glDrawArrays(GL_TRIANGLES, 0, 6); // debug
             
@@ -340,9 +340,48 @@ int main(int argc, char **argv){
         
         
         /////////////////////////
+        ////////// COPY /////////
+        /////////////////////////
+        
+        // copy output to input
+        
+        if (true) {
+            
+            
+            // bind output-texture to fbo
+            glBindFramebuffer(GL_FRAMEBUFFER, fbo); // render to frameBuffer
+            
+            glViewport(0, 0, PARTICLE_DATA_WIDTH, PARTICLE_DATA_HEIGHT);
+            
+            glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, physicsInputTexture, 0);
+            //            glBindFramebuffer(GL_FRAMEBUFFER, 0); // render to screen
+            //        calculatePhysics();
+            glDisable(GL_DEPTH_TEST);
+            
+            glClearColor(0.8f, 0.2f, 0.2f, 1.0f);
+            glClear(GL_COLOR_BUFFER_BIT);
+            
+            
+            glUseProgram(copyProgram);
+            
+            // feed input
+            glActiveTexture(GL_TEXTURE0);
+            glBindTexture(GL_TEXTURE_2D, physicsOutputTexture);
+            glUniform1i(glGetUniformLocation(copyProgram, "sampleTexture"), 0);
+            glBindVertexArray(quadVAO);
+            
+            
+            glDrawArrays(GL_TRIANGLES, 0, 6); // debug
+            
+            glBindVertexArray(0);
+        }
+        
+        /////////////////////////
         ////// OFF-SCREEN ///////
         /////////////////////////
-    
+        
+        // debug : render a texture to check output
+        unsigned int textureIDtoRender = physicsInputTexture;
         if (true) {
             glBindFramebuffer(GL_FRAMEBUFFER, 0);
             glDisable(GL_DEPTH_TEST);
@@ -356,7 +395,7 @@ int main(int argc, char **argv){
             glUseProgram(screenShaderProgram);
             
             glActiveTexture(GL_TEXTURE0);
-            glBindTexture(GL_TEXTURE_2D, physicsOutputTexture);
+            glBindTexture(GL_TEXTURE_2D, textureIDtoRender);
             glUniform1i(glGetUniformLocation(screenShaderProgram, "screenTexture"), 0);
             
             glBindVertexArray(quadVAO); // use the color attachment texture as the texture of the quad plane
@@ -365,6 +404,10 @@ int main(int argc, char **argv){
         }
         
         
+        if (glGetError() != 0) {
+            std::cout <<   glGetError() << std::endl; //
+            
+        }
         glfwSwapBuffers(window);
         //        glfwPollEvents 检查函数有没有触发什么事件 键盘输入 鼠标移动 并调用对应函数
         glfwPollEvents();
@@ -379,6 +422,8 @@ int main(int argc, char **argv){
     delete screenFS;
     delete physicsFS;
     delete physicsVS;
+    delete copyFS;
+    delete copyVS;
     
     delete[] physicsInputData;
     delete[] physicsOutputData;
@@ -564,10 +609,18 @@ void createPhysicsTexture(unsigned int * texptr, float** data) {
     
     glGenTextures(1, texptr); // ....
     glBindTexture(GL_TEXTURE_2D, *texptr);
+    
+    
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_BASE_LEVEL, 0);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, 0);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, PARTICLE_DATA_WIDTH, PARTICLE_DATA_HEIGHT, 0, GL_RGBA, GL_FLOAT, *data);
+    
+    
+    std::cout << "createPhysicsTexture -- " << glGetError() << std::endl; //
     
 }
