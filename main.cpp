@@ -25,6 +25,7 @@ void processInput(GLFWwindow *window);
 unsigned int setupVerticesData();
 unsigned int loadFile(const char* filename, char** buffer);
 void loadShaderSources();
+unsigned int setupParticles(float** dataPtrPtr);
 
 int createShader(char** vsptr, char** fsptr, const char* vsFile, const char* fsFile);
 /*
@@ -45,6 +46,7 @@ char*vertexShaderSource, *fragmentShaderSource;
 char* screenVS, *screenFS;
 char* physicsVS, *physicsFS;
 char* copyVS, *copyFS;
+char* renderVS, *renderFS;
 
 int SCR_WIDTH = 800, SCR_HEIGHT = 600;
 
@@ -108,10 +110,16 @@ int main(int argc, char **argv){
     int screenShaderProgram = createShader(&screenVS, &screenFS, "./shaders/screenShader.vs", "./shaders/screenShader.fs");
     int physicsProgram = createShader(&physicsVS, &physicsFS, "./shaders/physics.vs", "./shaders/physics.fs");
     int copyProgram = createShader(&copyVS, &copyFS, "./shaders/copy.vs", "./shaders/copy.fs");
+    int renderProgram = createShader(&renderVS, &renderFS, "./shaders/render.vs", "./shaders/render.fs");
   
     
     int VAO = setupVerticesData();
     int number_of_vertices = 36;
+    
+    float* particleData = new float[PARTICLE_COUNT * 2]; // writing texture coords of particles
+    
+    unsigned int particlesVAO = setupParticles(&particleData);
+    
     
     
     unsigned int texture;
@@ -376,14 +384,15 @@ int main(int argc, char **argv){
             glBindVertexArray(0);
         }
         
-        /////////////////////////
-        ////// OFF-SCREEN ///////
-        /////////////////////////
+        ///////////////////////////////
+        ////// OFF-SCREEN DEBUG ///////
+        ///////////////////////////////
         
         // debug : render a texture to check output
-        unsigned int textureIDtoRender = physicsInputTexture;
-        if (true) {
+        unsigned int textureIDtoRender = physicsOutputTexture;
+        if (!true) {
             glBindFramebuffer(GL_FRAMEBUFFER, 0);
+            glViewport(0, 0, viewportWidth, viewportHeight);
             glDisable(GL_DEPTH_TEST);
             // clear all relevant buffers
             glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
@@ -391,7 +400,6 @@ int main(int argc, char **argv){
             glClear(GL_COLOR_BUFFER_BIT);
 
             
-            glViewport(0, 0, viewportWidth, viewportHeight);
             glUseProgram(screenShaderProgram);
             
             glActiveTexture(GL_TEXTURE0);
@@ -404,10 +412,36 @@ int main(int argc, char **argv){
         }
         
         
-        if (glGetError() != 0) {
-            std::cout <<   glGetError() << std::endl; //
+        /////////////////////
+        ////// RENDER ///////
+        /////////////////////
+        if (true) {
+            glBindFramebuffer(GL_FRAMEBUFFER, 0);
+            glViewport(0, 0, viewportWidth, viewportHeight);
+            glDisable(GL_DEPTH_TEST);
+            // clear all relevant buffers
+            glClearColor(0.01f, 0.01f, 0.5f, 1.0f);
+            // set clear color to white (not really necessery actually, since we won't be able to see behind the quad anyways)
+            glClear(GL_COLOR_BUFFER_BIT);
+            
+            
+            glUseProgram(renderProgram);
+            
+            glActiveTexture(GL_TEXTURE0);
+            glBindTexture(GL_TEXTURE_2D, physicsOutputTexture);
+            glUniform1i(glGetUniformLocation(renderProgram, "physicsData"), 0);
+            
+            
+            glBindVertexArray(particlesVAO); // use the color attachment texture as the texture of the quad plane
+            glDrawArrays(GL_POINTS, 0, PARTICLE_COUNT);
+        }
+        
+        int err = glGetError() ;
+        if (err != 0) {
+            std::cout << "glGetError : " <<  err << std::endl; //
             
         }
+        
         glfwSwapBuffers(window);
         //        glfwPollEvents 检查函数有没有触发什么事件 键盘输入 鼠标移动 并调用对应函数
         glfwPollEvents();
@@ -419,14 +453,17 @@ int main(int argc, char **argv){
     delete vertexShaderSource;
     delete fragmentShaderSource;
     delete screenFS;
-    delete screenFS;
+    delete screenVS;
     delete physicsFS;
     delete physicsVS;
     delete copyFS;
     delete copyVS;
+    delete renderFS;
+    delete renderVS;
     
     delete[] physicsInputData;
     delete[] physicsOutputData;
+    delete[] particleData;
     
     return 0;
 }
@@ -623,4 +660,32 @@ void createPhysicsTexture(unsigned int * texptr, float** data) {
     
     std::cout << "createPhysicsTexture -- " << glGetError() << std::endl; //
     
+}
+
+
+unsigned int setupParticles(float** ptr) {
+    float* particleData = *ptr;
+    
+    int uptr = 0, vptr = 0;
+    float step = 1.0f / PARTICLE_COUNT_SQRT;
+    for (int i = 0; i < PARTICLE_COUNT; i++) {
+        uptr = i*2;     // skip velocity slots in texture
+        vptr = uptr + 1;
+        
+        particleData[uptr] = step * (i % PARTICLE_COUNT_SQRT);
+        particleData[vptr] = step * i / PARTICLE_COUNT_SQRT;
+    }
+    
+    unsigned int VAO, VBO;
+    glGenVertexArrays(1, &VAO);
+    glGenBuffers(1, &VBO);
+    glBindVertexArray(VAO);
+    
+    glBindBuffer(GL_ARRAY_BUFFER, VBO);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(float) * PARTICLE_COUNT * 2, particleData, GL_STATIC_DRAW);
+    
+    // position uv
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)0);
+    glEnableVertexAttribArray(0);
+    return VAO;
 }
