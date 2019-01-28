@@ -421,7 +421,6 @@ int main(int argc, char **argv){
             glDisable(GL_DEPTH_TEST);
             // clear all relevant buffers
             glClearColor(0.01f, 0.01f, 0.5f, 1.0f);
-            // set clear color to white (not really necessery actually, since we won't be able to see behind the quad anyways)
             glClear(GL_COLOR_BUFFER_BIT);
             
             
@@ -685,7 +684,7 @@ unsigned int setupParticles(float** ptr) {
     glBufferData(GL_ARRAY_BUFFER, sizeof(float) * PARTICLE_COUNT * 2, particleData, GL_STATIC_DRAW);
     
     // position uv
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)0);
+    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(float), (void*)0);
     glEnableVertexAttribArray(0);
     return VAO;
 }

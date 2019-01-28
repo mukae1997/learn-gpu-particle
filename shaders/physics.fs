@@ -4,6 +4,11 @@ out vec4 FragColor;
 uniform vec2 bounds;
 uniform sampler2D physicsInput;
 
+
+int POSITION_SLOT = 0;
+int VELOCITY_SLOT = 1;
+vec3 TARGET = vec3(0.0, 0.0, 0.01);
+
 void FAST32_hash_2D( vec2 gridcell, out vec4 hash_0, out vec4 hash_1 )    //    generates 2 random numbers for each of the 4 cell corners
 {
     //    gridcell is assumed to be an integer coordinate
@@ -69,19 +74,52 @@ vec4 texel(vec2 offset) {
 void main()
 {
     
-    if (gl_FragCoord.x < 0.5 * bounds.x)
-        FragColor = vec4(0.0,gl_FragCoord.x/bounds.x,0.0,1.0);
-    else {
-//        FragColor = vec4(gl_FragCoord.x/bounds.x,0.0,0.0,1.0);
-//        FragColor = texture(physicsInput, vec2(0.0,0.0));
-        FragColor = texel(vec2(0.0,0.0));  
+    
+    
+    
+    // check current position
+    int slot = int(mod(gl_FragCoord.x, 2.0));
+    if (slot == POSITION_SLOT) {
+        // each particle use two texel of texture to save data
+        vec4 dataA = texel(vec2(0.0, 0.0));
+        vec4 dataB = texel(vec2(1.0, 0.0));
+        vec3 position = dataA.xyz;
+        vec3 velocity = dataB.xyz;
+        
+        position += velocity * 0.005;
+        
+        if (position.x < -1.0) {
+            position.x = 1.0;
+        }
+        if (position.x > 1.0) {
+            
+            position.x = -1.0;
+        }
+        
+        FragColor = vec4(position, 1.0);
+        
+    } else if (slot == VELOCITY_SLOT) {
+        vec4 dataA = texel(vec2(-1.0, 0.0));
+        vec4 dataB = texel(vec2(0.0, 0.0));
+        vec3 position = dataA.xyz;
+        vec3 velocity = dataB.xyz;
+        
+        
+        float phase = dataA.w;
+        if (phase > 0.0) {
+            vec3 delta = normalize(TARGET - position);
+            velocity += delta * 0.05;
+            velocity *= 0.991;
+        } else {
+            velocity = vec3(0.0);
+        }
+        FragColor = vec4(velocity, 1.0);
+        
+        FragColor = vec4(SimplexPerlin2D(gl_FragCoord.xy + 0.1), SimplexPerlin2D(gl_FragCoord.xy - 1.0), 1.0, 1.0); // debug
     }
     
-    vec2 pos = gl_FragCoord.xy + texel(vec2(0.0, 1.0)).xy ;
-    
-//    FragColor = vec4(0.5, 0.5, 0.5, 1.0);
-    FragColor = vec4(SimplexPerlin2D(pos + 0.1), SimplexPerlin2D(pos - 0.1), 1.0, 1.0);
     
     
-//    FragColor = vec4(0.0,0.0,max(0,gl_FragCoord.x-0.5),1.0);
+//    vec2 pos = gl_FragCoord.xy + texel(vec2(0.0, 1.0)).xy ;
+//    FragColor = vec4(SimplexPerlin2D(pos + 0.1), SimplexPerlin2D(pos - 0.1), 1.0, 1.0); // debug
 }

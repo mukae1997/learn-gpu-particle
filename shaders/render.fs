@@ -10,7 +10,7 @@ void main()
 {
     
     
-    FragColor = vec4(1.0, dataLoc, 1.0);
+    FragColor = vec4(1.0);
     
-    FragColor = cle;
+    FragColor = vec4(dataLoc, 1.0, 1.0); // debug
 }
