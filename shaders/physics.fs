@@ -24,6 +24,13 @@ void FAST32_hash_2D( vec2 gridcell, out vec4 hash_0, out vec4 hash_1 )    //    
     hash_1 = fract( P * ( 1.0 / SOMELARGEFLOATS.y ) );
 }
 
+
+float random (in vec2 _st) {
+    return fract(sin(dot(_st.xy,
+                         vec2(12.9898,78.233)))*
+                 43758.5453123);
+}
+
 float SimplexPerlin2D( vec2 P )
 {
     //    simplex math constants
@@ -74,8 +81,7 @@ vec4 texel(vec2 offset) {
 void main()
 {
     
-    
-    
+    float maxLife = 20.0;
     
     // check current position
     int slot = int(mod(gl_FragCoord.x, 2.0));
@@ -86,17 +92,39 @@ void main()
         vec3 position = dataA.xyz;
         vec3 velocity = dataB.xyz;
         
-        position += velocity * 0.005;
+//        float life = dataA.w;
         
-        if (position.x < -1.0) {
-            position.x = 1.0;
-        }
-        if (position.x > 1.0) {
-            
-            position.x = -1.0;
-        }
+        
+//        life +=  1.0 / 60.0 * 0.03;
+//                life = 0.5; // debug
+        
+        position += velocity * 0.008;
+        
+//        if (position.x < -1.0) {
+//            position.x = 1.0;
+//        }
+//        if (position.x > 1.0) {
+//            position.x = -1.0;
+//
+//        }
+//
+//        if (position.y < -1.0) {
+//            position.y = 1.0;
+//        }
+//        if (position.y > 1.0) {
+//            position.y = -1.0;
+//        }
+        
+//        if (life > 10.0) {
+//            // reset
+//            life = 0.0;
+////            position.xy = vec2(-0.2, 0.2);
+////            position.z = 0;
+//        }
         
         FragColor = vec4(position, 1.0);
+        
+//        FragColor = vec4(0.0,0.0,0.0,1.0);// debug
         
     } else if (slot == VELOCITY_SLOT) {
         vec4 dataA = texel(vec2(-1.0, 0.0));
@@ -105,17 +133,28 @@ void main()
         vec3 velocity = dataB.xyz;
         
         
-        float phase = dataA.w;
-        if (phase > 0.0) {
-            vec3 delta = normalize(TARGET - position);
-            velocity += delta * 0.05;
-            velocity *= 0.991;
-        } else {
-            velocity = vec3(0.0);
-        }
-        FragColor = vec4(velocity, 1.0);
+        float life = dataB.w;
         
-        FragColor = vec4(SimplexPerlin2D(gl_FragCoord.xy + 0.1), SimplexPerlin2D(gl_FragCoord.xy - 1.0), 1.0, 1.0); // debug
+//        life += 0.001;
+        if (life < maxLife) {
+            //        FragColor = vec4(velocity, 1.0);
+//            vec2 seedvec = vec2(distance(gl_FragCoord.xy, bounds*0.5), 1/distance(gl_FragCoord.xy, bounds*0.5));
+            vec2 seedvec = vec2( random(gl_FragCoord.xy), random(gl_FragCoord.yx));
+            vec3 randAcc = vec3(SimplexPerlin2D(seedvec*5 - 1.0),
+                                                        SimplexPerlin2D(seedvec.yx*50 - 1.0),
+                                random(seedvec) );
+            velocity += randAcc * 0.1;
+            float maxSpeed = 0.8;
+            velocity = normalize(velocity) * maxSpeed;
+            
+//            velocity *= (maxLife - life) / maxLife;
+            
+            
+            FragColor = vec4(velocity, life);
+            
+//                    FragColor = vec4(1.0,1.0,1.0,life);// debug
+            
+        }
     }
     
     

@@ -16,5 +16,5 @@ void main()
     // debug
     
     FragColor = texColor;
-    if (gl_FragCoord.x<10) FragColor = vec4(1.0,0.0,0.0,1.0);
+//    if (gl_FragCoord.x<10) FragColor = vec4(1.0,0.0,0.0,1.0); // debug
 }

@@ -16,6 +16,10 @@
 #include <sstream>
 #include <streambuf>
 
+#include <vector>
+
+#include <glm/gtc/random.hpp>
+
 #include "GraphicObject.hpp"
 
 //    窗口调整的时候 视口应该也被调整  对窗口注册一个回调函数每次窗口大小被调整的时候会被调用
@@ -50,7 +54,7 @@ char* renderVS, *renderFS;
 
 int SCR_WIDTH = 800, SCR_HEIGHT = 600;
 
-int viewportWidth = 800*RETINA_FACTOR, viewportHeight = 600*RETINA_FACTOR;
+int viewportWidth = SCR_WIDTH*RETINA_FACTOR, viewportHeight = SCR_HEIGHT*RETINA_FACTOR;
 // texture IDs
 unsigned int physicsInputTexture, physicsOutputTexture, pointSpriteTexture;
 unsigned int canvasCopyTexture;
@@ -63,6 +67,19 @@ int PARTICLE_DATA_SLOTS = 2;
 int PARTICLE_DATA_WIDTH = PARTICLE_COUNT_SQRT * PARTICLE_DATA_SLOTS;
 int PARTICLE_DATA_HEIGHT = PARTICLE_COUNT_SQRT;
 
+
+
+struct chunk{
+    int x, y, count;
+} ;
+void spiltChunk(chunk& c, std::vector<chunk>& chunks);
+void pushDataByChunks(glm::vec3 p, glm::vec3 v, std::vector<chunk>& chunks);
+
+
+float mapRange(float val, float a1, float b1, float a2, float b2) {
+    return a2 + (val - a1) / (b1 - a1) * (b2 - a2);
+    
+}
 
 
 int main(int argc, char **argv){
@@ -171,7 +188,6 @@ int main(int argc, char **argv){
     glUniformMatrix4fv(projectLoc, 1, GL_FALSE, glm::value_ptr(projection));
     
     
-    
     ///////////////////////////
     // set texture(why?)
     ///////////////////////////
@@ -195,7 +211,7 @@ int main(int argc, char **argv){
     
     int PHYSICS_TEX_DATA_LENGTH = 4 * PARTICLE_COUNT * DATA_SLOT_SIZE;
     float* physicsInputData = new float[PHYSICS_TEX_DATA_LENGTH];
-    // debug filling
+    // debug filling blue
     for (int i = 2; i < PHYSICS_TEX_DATA_LENGTH; i += 4){
         physicsInputData[i] = 1.0f;
     }
@@ -253,16 +269,26 @@ int main(int argc, char **argv){
     
     
     
+    
     /////////////////////
     ///// PARTICLES /////
     /////////////////////
     
     glEnable(GL_PROGRAM_POINT_SIZE);
+    
+    int emitIndex = 0;
 
 //    glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+    
+    
     while(!glfwWindowShouldClose(window))
     {
         processInput(window);
+        
+        
+        // Get mouse position
+        double mouseX, mouseY;
+        glfwGetCursorPos(window, &mouseX, &mouseY);
         
         glBindFramebuffer(GL_FRAMEBUFFER, fbo);
         glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, canvasCopyTexture, 0);
@@ -283,6 +309,8 @@ int main(int argc, char **argv){
             // bind Texture
             glBindTexture(GL_TEXTURE_2D, texture);
             glActiveTexture(GL_TEXTURE0);
+            
+            
             
             model = glm::mat4(1.0f);
             model = glm::translate(model,  glm::vec3(0.0f,0.0f, -0.9f));
@@ -311,7 +339,56 @@ int main(int argc, char **argv){
         }
         
         
-        
+        /////////////////////////
+        ////////  EMIT   ////////
+        /////////////////////////
+        if (true) {
+            glActiveTexture(GL_TEXTURE0);
+            glBindTexture(GL_TEXTURE_2D, physicsInputTexture);
+            
+            int emitCount = 8500;
+            std::vector<chunk> chunks;
+            
+            int startx = floor((emitIndex * PARTICLE_DATA_SLOTS) % PARTICLE_DATA_WIDTH);
+            int starty = floor(emitIndex / PARTICLE_DATA_HEIGHT);
+            
+            
+            chunk basechunk = {startx, starty, emitCount};
+            chunks.push_back(basechunk);
+            
+            
+            spiltChunk(chunks[0], chunks);
+            
+            
+            for (int i = 0; i < chunks.size(); i++) {
+//                std::cout << chunks[i].x << " " << chunks[i].y << std::endl;
+            }
+            
+            emitIndex += emitCount;
+            emitIndex %= PARTICLE_COUNT;
+            
+            glm::vec3 pos(0,0, 0), vel(0,0,0);
+            pos.x = mapRange(mouseX /  SCR_WIDTH,  0, 1, -1, 1);
+            pos.y = mapRange(mouseY / SCR_HEIGHT, 0,1,1,-1);
+            pos.z = mapRange(pos.x, -1, 1, 0.85, 0.8);
+//            pos.x = 0.7;
+//            pos.y = 0.7;
+            std::cout << pos.x  << " " << pos.y << std::endl;
+            
+           // raycast
+            glm::mat4 m = glm::inverse(projection*view*model);
+            glm::vec4 p4(pos,1.0);
+            glm::vec4 out = m * p4;
+            out.w = 1/out.w;
+            out.x *= out.w;
+            out.y *= out.w;
+            out.z *= out.w;
+            
+            
+            pushDataByChunks(out, vel, chunks);
+            
+            
+        }
         
         /////////////////////////
         //////// PHYSICS ////////
@@ -337,10 +414,9 @@ int main(int argc, char **argv){
             // set data texture size
             glUniform2f(glGetUniformLocation(physicsProgram, "bounds"), PARTICLE_DATA_WIDTH, PARTICLE_DATA_HEIGHT);
             
-            
             glBindVertexArray(quadVAO);
             
-            glDrawArrays(GL_TRIANGLES, 0, 6); // debug
+            glDrawArrays(GL_TRIANGLES, 0, 6);
             
             glBindVertexArray(0);
         
@@ -379,18 +455,18 @@ int main(int argc, char **argv){
             glBindVertexArray(quadVAO);
             
             
-            glDrawArrays(GL_TRIANGLES, 0, 6); // debug
+            glDrawArrays(GL_TRIANGLES, 0, 6);
             
             glBindVertexArray(0);
         }
-        
+        bool showDebug = false;
         ///////////////////////////////
         ////// OFF-SCREEN DEBUG ///////
         ///////////////////////////////
         
         // debug : render a texture to check output
-        unsigned int textureIDtoRender = physicsOutputTexture;
-        if (!true) {
+        unsigned int textureIDtoRender = physicsInputTexture;
+        if (showDebug) {
             glBindFramebuffer(GL_FRAMEBUFFER, 0);
             glViewport(0, 0, viewportWidth, viewportHeight);
             glDisable(GL_DEPTH_TEST);
@@ -415,7 +491,7 @@ int main(int argc, char **argv){
         /////////////////////
         ////// RENDER ///////
         /////////////////////
-        if (true) {
+        if (!showDebug) {
             glBindFramebuffer(GL_FRAMEBUFFER, 0);
             glViewport(0, 0, viewportWidth, viewportHeight);
             glDisable(GL_DEPTH_TEST);
@@ -425,6 +501,11 @@ int main(int argc, char **argv){
             
             
             glUseProgram(renderProgram);
+            
+            glUniformMatrix4fv(glGetUniformLocation(renderProgram, "model"), 1, GL_FALSE, glm::value_ptr(model));
+            glUniformMatrix4fv(glGetUniformLocation(renderProgram, "view"), 1, GL_FALSE, &view[0][0]);
+            glUniformMatrix4fv(glGetUniformLocation(renderProgram, "projection"), 1, GL_FALSE, glm::value_ptr(projection));
+            
             
             glActiveTexture(GL_TEXTURE0);
             glBindTexture(GL_TEXTURE_2D, physicsOutputTexture);
@@ -688,3 +769,44 @@ unsigned int setupParticles(float** ptr) {
     glEnableVertexAttribArray(0);
     return VAO;
 }
+
+
+void spiltChunk(chunk& c, std::vector<chunk>& chunks) {
+    int bound = c.x + c.count;
+    if (bound > PARTICLE_DATA_WIDTH) {
+        int delta = bound - PARTICLE_DATA_WIDTH; // 移到下一行
+        c.count -= delta;
+        chunk newchunk = {0, (c.y+ 1) % PARTICLE_DATA_HEIGHT, delta}; // 从下一行头开始算
+        chunks.push_back(newchunk);
+        spiltChunk(newchunk, chunks);
+    }
+    
+}
+
+void pushDataByChunks(glm::vec3 origin, glm::vec3 vel, std::vector<chunk>& chunks){
+    int i, j, n, m, data, force = 0.5;
+    int dataLengthPerParticle = DATA_SLOT_SIZE * 4;
+    for (i = 0; i < chunks.size(); i++) {
+        chunk c = chunks[i];
+        float* data = new float[c.count * dataLengthPerParticle];
+        
+        for (j = 0; j < c.count; j++) {
+            data[j * dataLengthPerParticle] = origin.x;
+            data[j * dataLengthPerParticle + 1] = origin.y;
+            data[j * dataLengthPerParticle + 2] = origin.z;
+            data[j * dataLengthPerParticle + 3] = 0;
+            data[j * dataLengthPerParticle + 4] = vel.x + force * glm::linearRand(-1,1);
+            data[j * dataLengthPerParticle + 5] = vel.y + force * glm::linearRand(-1,1);
+            data[j * dataLengthPerParticle + 6] = vel.z + force * glm::linearRand(-1,1);
+            data[j * dataLengthPerParticle + 7] = 0;
+        
+        }
+        
+        glTexSubImage2D(
+                         GL_TEXTURE_2D, 0, c.x, c.y, c.count, 1,
+                         GL_RGBA, GL_FLOAT, data
+                         );
+        delete[] data;
+    }
+}
+
